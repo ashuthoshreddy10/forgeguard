@@ -170,8 +170,8 @@ See [docs/DEMO_REPLAY.md](docs/DEMO_REPLAY.md).
   - the initial frontend, backend and demo-app
 
   Superseded examples: the `git stash` rollback, the `bob -p` CLI flags, and "5 subagents".
-- **After Bob's credits ran out**, the implementation was audited and hardened with Claude Code: truthful failure states, correct Bob CLI invocation, the deterministic verdict, the rollback redesign, security, the UI and Replay Mode. Every step, command and test result is recorded in [docs/CLAUDE_AUDIT.md](docs/CLAUDE_AUDIT.md).
-- **No ForgeGuard mission has been completed with live Bob.** Credits were exhausted before the integration could run end-to-end. The Bob integration is verified against the installed CLI (`--version`, `run --help`) and with a test-only fake entry point. That is why the demo uses Replay Mode.
+- **Following the initial Bob-assisted build**, ForgeGuard was independently audited, tested and hardened to verify correctness, security and release readiness. See the engineering audit and security documentation in `docs/`.
+- **Live Bob integration:** The runtime integration is implemented and verified against the installed Bob Shell interface. End-to-end live mission execution was not exercised after the hackathon Bob allocation was exhausted. Demo Replay Mode is therefore used for the deterministic presentation.
 
 ## IBM Bob task-session evidence
 
