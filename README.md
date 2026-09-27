@@ -173,6 +173,23 @@ See [docs/DEMO_REPLAY.md](docs/DEMO_REPLAY.md).
 - **After Bob's credits ran out**, the implementation was audited and hardened with Claude Code: truthful failure states, correct Bob CLI invocation, the deterministic verdict, the rollback redesign, security, the UI and Replay Mode. Every step, command and test result is recorded in [docs/CLAUDE_AUDIT.md](docs/CLAUDE_AUDIT.md).
 - **No ForgeGuard mission has been completed with live Bob.** Credits were exhausted before the integration could run end-to-end. The Bob integration is verified against the installed CLI (`--version`, `run --help`) and with a test-only fake entry point. That is why the demo uses Replay Mode.
 
+## IBM Bob task-session evidence
+
+The `bob_sessions/` directory contains the relevant IBM Bob IDE task-session
+consumption-summary screenshots from the ForgeGuard development process.
+
+These records document:
+
+- `01_planning_consumption_summary.png` — ForgeGuard planning and architecture work
+- `02_implementation_consumption_summary.png` — ForgeGuard implementation work
+- `03_final_session_consumption_summary.png` — later Bob development/report session
+
+These are historical Bob development sessions and are not recordings of a
+completed live ForgeGuard mission.
+
+The final demonstration uses Demo Replay Mode, which is explicitly labeled
+and never invokes IBM Bob.
+
 ## Tests
 
 ```bash
