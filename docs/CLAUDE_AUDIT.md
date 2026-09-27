@@ -1308,3 +1308,67 @@ None found. The only QA issue was in the rehearsal script itself: it assumed "De
 3. **Pressing "Run pipeline" on a live mission with Bob configured would start real, paid Bob tasks.** For the demo, run the backend with Bob unavailable (for example `BOB_CLI_PATH` pointing at a missing file). With credits exhausted, a live start would otherwise fail on budget, truthfully.
 4. **`npm start` from `dist` still fails** because `schema.sql` isn't copied. Use `npm run dev` for the demo.
 5. **Operational gaps:** no authentication; no restart recovery for in-flight missions; replay sessions are lost on a server restart (the UI returns to the selector with a message).
+
+
+---
+
+## GitHub packaging
+
+**Date:** 2026-09-27 · **Engineer:** Claude Code (Opus 5.5).
+
+- IBM Bob was not invoked.
+- demo-app's source was not modified.
+- The application behaviour is unchanged.
+
+### Repository layout
+
+- **One root Git repository** (`main`) containing `.bob/`, `backend/`, `frontend/`, `demo-app/`, `docs/`, `scripts/`, `.env.example`, `.gitignore` and `README.md`.
+- **Intended remote:** https://github.com/ashuthoshreddy10/forgeguard (public).
+
+### demo-app
+
+- **Normal tracked directory.** 16 ordinary files (mode 100644). There is no gitlink, no submodule and no `.gitmodules`, and a plain `git clone` includes it.
+- **History imported, not squashed.** The original repository's `main` was fetched and merged with the subtree strategy (`merge -s ours` + `read-tree --prefix=demo-app/`).
+  - The original baseline commit **`fc6794e3e2e1c0b572c53c0a4026a62bac3c8a1f`** (tree `54738f4b…`) is the import commit's second parent, with the same SHA, and is tagged **`demo-app-baseline`**.
+  - `HEAD:demo-app` equals the baseline tree exactly.
+- **Nested `.git` removed from the project.** It was moved, not deleted, to a backup outside the repository. Two further backups were also made first: a mirror clone and a copy of `.git`.
+
+### Setup step
+
+ForgeGuard needs demo-app to be the top level of its own repository: rollback anchors, the repository lock, the backend tests and live missions depend on it. The new `scripts/setup-demo-repo.mjs` re-creates `demo-app/.git` at exactly `fc6794e`, without touching demo-app's files:
+
+- **Fetch path:** it fetches the original commit from the root history via the tag.
+- **ZIP fallback:** for a download without Git history, it rebuilds the commit from the tracked files and the original metadata, and verifies the SHA.
+
+Verified cases:
+
+| Case | Result |
+|---|---|
+| Fetch path | `fc6794e` |
+| ZIP with LF line endings | `fc6794e` |
+| ZIP with CRLF line endings | `fc6794e` |
+| Modified demo-app | refused, and no `.git` left behind |
+| Existing baseline repo | idempotent (nothing changed) |
+
+The locally re-created nested repository is never tracked, and the root `git status` stays clean alongside it.
+
+### Other changes
+
+- **Root `.gitignore`** excludes `node_modules/`, `dist/`, `coverage/`, `backend/data/`, `*.db*`, `*.sqlite*`, `.env`/`.env.*` (but not `.env.example`), `logs/`, `*.log`, temporary and backup files, and OS/editor artifacts.
+- **Privacy.** A scan of every tracked file found no API keys, tokens or passwords; only three fake test placeholders. Five machine-local paths containing the Windows username were replaced with `%USERPROFILE%`. No `~/.bob` state (`db`, `logs`, `settings`) is inside the project: `.bob/` holds only the project `rules/` and `skills/`.
+
+### Clean-clone verification
+
+The clone was made with `git clone`, without `--recursive`, followed by the setup script and `npm ci` in all three packages. Every check ran with exit 0:
+
+| Package | Result |
+|---|---|
+| backend | typecheck, build; `npm test` **121/121**; `test:integration` **1/1** |
+| frontend | typecheck, lint, build; `npm test` **38/38** |
+| demo-app | test **29/29**, typecheck, lint, build |
+
+In the clone, the live path with Bob unavailable returned `POST /start` → 503 `BOB_UNAVAILABLE`, and replay start returned 201. The clone's demo-app stayed at `fc6794e`, and its status stayed clean.
+
+### GitHub remote
+
+The GitHub CLI (`gh`) is not installed; only Git Credential Manager is present. The public API reports that user `ashuthoshreddy10` exists and that `ashuthoshreddy10/forgeguard` does **not** exist (HTTP 404). No remote was added and nothing was pushed. The exact push commands are in the final report.
