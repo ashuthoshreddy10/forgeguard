@@ -1,0 +1,117 @@
+{
+  "id": "safe-fix",
+  "title": "Safe Fix",
+  "purpose": "Complete end-to-end successful engineering workflow",
+  "expectedFinalState": "READY · release narrative agrees · rollback available",
+  "expectedVerdict": "ready",
+  "mission": {
+    "issueText": "calculateDiscount() in src/pricing.ts returns negative prices when the discount rate exceeds 100%. Clamp the rate to the range [0, 100] and add boundary tests.",
+    "repoLabel": "demo-app"
+  },
+  "repoSummary": {
+    "summary": "Small Express + TypeScript e-commerce API: pricing, inventory and utility modules with Vitest tests.",
+    "primaryFiles": ["src/pricing.ts", "src/api.ts", "tests/pricing.test.ts"],
+    "entryPoints": ["src/pricing.ts:calculateDiscount", "src/pricing.ts:applyOrderDiscount"],
+    "issueLocation": "src/pricing.ts:calculateDiscount — no clamping of discountRate",
+    "issueType": "bug",
+    "estimatedComplexity": "low"
+  },
+  "specialists": {
+    "code_impact_analyst": {
+      "affectedFiles": [{ "path": "src/pricing.ts", "reason": "calculateDiscount must clamp the rate", "changeType": "modify" }],
+      "callerImpact": [{ "caller": "src/pricing.ts:applyOrderDiscount", "impact": "Totals can no longer go negative" }],
+      "riskLevel": "low",
+      "findings": ["Single-function fix; applyOrderDiscount inherits the clamping"]
+    },
+    "test_engineer": {
+      "existingTests": [{ "file": "tests/pricing.test.ts", "coverage": "happy-path rates 0, 10, 25, 100" }],
+      "gaps": ["No test for rate > 100", "No test for rate < 0"],
+      "recommendedTests": [{ "name": "clamps rate above 100", "reason": "covers the reported bug", "file": "tests/pricing.test.ts" }],
+      "riskLevel": "low",
+      "findings": ["Boundary tests are missing for both ends of the range"]
+    },
+    "security_analyst": {
+      "securityFindings": [{ "title": "Unvalidated discountRate reaches pricing", "severity": "medium", "description": "POST /api/orders/discount forwards any number", "file": "src/api.ts" }],
+      "owaspCategories": ["A04:2021 Insecure Design"],
+      "riskLevel": "medium",
+      "findings": ["Clamping in pricing removes the negative-total impact"]
+    },
+    "api_compat_analyst": {
+      "endpoints": [{ "path": "/api/orders/discount", "method": "POST", "breaking": false, "change": "Out-of-range rates are clamped" }],
+      "exportedFunctions": [{ "name": "calculateDiscount", "breaking": false, "change": "Clamps rate to [0, 100]" }],
+      "semverRecommendation": "patch",
+      "riskLevel": "low",
+      "findings": ["No breaking change for valid inputs"]
+    },
+    "doc_analyst": {
+      "staleDocFiles": [{ "file": "README.md", "issue": "Seeded issue #1 describes the unclamped behaviour" }],
+      "missingDocs": [],
+      "riskLevel": "low",
+      "findings": ["JSDoc for calculateDiscount should state the clamping"]
+    }
+  },
+  "changePlan": {
+    "summary": "Clamp discountRate to [0, 100] inside calculateDiscount and add boundary tests for rates above 100 and below 0.",
+    "riskLevel": "low",
+    "affectedFiles": ["src/pricing.ts", "tests/pricing.test.ts"],
+    "steps": [
+      { "order": 1, "file": "src/pricing.ts", "description": "Clamp discountRate with Math.min(Math.max(rate, 0), 100) before applying it" },
+      { "order": 2, "file": "tests/pricing.test.ts", "description": "Add tests: rate 150 → price 0; rate -10 → original price" }
+    ],
+    "testingRequired": ["calculateDiscount boundary tests", "applyOrderDiscount total never negative"],
+    "securityNotes": ["API input validation for discountRate remains a separate follow-up"],
+    "rollbackPlan": "Restore the pre-implementation anchor"
+  },
+  "implementation": {
+    "summary": "Clamped discountRate in calculateDiscount and added two boundary tests.",
+    "changedFiles": [
+      { "path": "src/pricing.ts", "change": "modified" },
+      { "path": "tests/pricing.test.ts", "change": "modified" }
+    ]
+  },
+  "validation": {
+    "baseline": {
+      "npm run lint": { "exitCode": 0, "durationMs": 6800, "stdout": "> forgeguard-demo-app@1.0.0 lint\n> eslint src tests" },
+      "npm test": { "exitCode": 0, "durationMs": 3900, "stdout": "> forgeguard-demo-app@1.0.0 test\n> vitest run\n\n ✓ tests/pricing.test.ts  (8 tests)\n ✓ tests/inventory.test.ts  (8 tests)\n ✓ tests/utils.test.ts  (13 tests)\n\n Test Files  3 passed (3)\n      Tests  29 passed (29)" },
+      "npm run typecheck": { "exitCode": 0, "durationMs": 3800, "stdout": "> forgeguard-demo-app@1.0.0 typecheck\n> tsc --noEmit" },
+      "npm run build": { "exitCode": 0, "durationMs": 3500, "stdout": "> forgeguard-demo-app@1.0.0 build\n> tsc -p tsconfig.build.json" }
+    },
+    "post": {
+      "npm run lint": { "exitCode": 0, "durationMs": 6900, "stdout": "> forgeguard-demo-app@1.0.0 lint\n> eslint src tests" },
+      "npm test": { "exitCode": 0, "durationMs": 4000, "stdout": "> forgeguard-demo-app@1.0.0 test\n> vitest run\n\n ✓ tests/pricing.test.ts  (10 tests)\n ✓ tests/inventory.test.ts  (8 tests)\n ✓ tests/utils.test.ts  (13 tests)\n\n Test Files  3 passed (3)\n      Tests  31 passed (31)" },
+      "npm run typecheck": { "exitCode": 0, "durationMs": 3700, "stdout": "> forgeguard-demo-app@1.0.0 typecheck\n> tsc --noEmit" },
+      "npm run build": { "exitCode": 0, "durationMs": 3600, "stdout": "> forgeguard-demo-app@1.0.0 build\n> tsc -p tsconfig.build.json" }
+    }
+  },
+  "bobNarrative": {
+    "releaseReadiness": "ready",
+    "summary": "Discount rates are now clamped to [0, 100]; the two new boundary tests pass and every validation command passed before and after the change.",
+    "recommendation": "deploy",
+    "remainingRisks": ["The API still accepts non-numeric discountRate values (tracked separately)"]
+  },
+  "rollback": {
+    "anchorAvailable": true,
+    "wouldRestore": ["src/pricing.ts", "tests/pricing.test.ts"],
+    "wouldRemove": []
+  },
+  "timeline": [
+    { "t": 0, "label": "Mission created", "action": { "type": "mission_created" } },
+    { "t": 1, "label": "Repository understanding started", "action": { "type": "phase_started", "phase": "repo_understanding" } },
+    { "t": 1, "label": "Baseline validation recorded", "action": { "type": "baseline_validation" } },
+    { "t": 2, "label": "Repository understood", "action": { "type": "phase_completed", "phase": "repo_understanding" } },
+    { "t": 2, "label": "5 specialist analyses started", "action": { "type": "phase_started", "phase": "parallel_analysis" } },
+    { "t": 4, "label": "Specialist analyses complete", "action": { "type": "phase_completed", "phase": "parallel_analysis" } },
+    { "t": 4, "label": "Change plan synthesis started", "action": { "type": "phase_started", "phase": "change_plan" } },
+    { "t": 5, "label": "Change plan ready", "action": { "type": "phase_completed", "phase": "change_plan" } },
+    { "t": 5, "label": "Approval required", "action": { "type": "approval_required" } },
+    { "t": 6, "label": "Plan approved", "action": { "type": "approved" } },
+    { "t": 7, "label": "Implementation started (rollback anchor recorded)", "action": { "type": "phase_started", "phase": "implementation" } },
+    { "t": 9, "label": "Implementation complete", "action": { "type": "phase_completed", "phase": "implementation" } },
+    { "t": 9, "label": "Post-implementation validation started", "action": { "type": "phase_started", "phase": "validation" } },
+    { "t": 10, "label": "Post-implementation results recorded", "action": { "type": "post_validation" } },
+    { "t": 11, "label": "Deterministic release decision", "action": { "type": "release_decision" } },
+    { "t": 11, "label": "Release narrative started", "action": { "type": "phase_started", "phase": "release_report" } },
+    { "t": 12, "label": "Release narrative recorded", "action": { "type": "phase_completed", "phase": "release_report" } },
+    { "t": 12, "label": "Mission complete", "action": { "type": "mission_completed" } }
+  ]
+}

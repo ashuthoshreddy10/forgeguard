@@ -1,0 +1,131 @@
+{
+  "id": "bob-disagreement",
+  "title": "Bob Disagreement",
+  "purpose": "Model recommendation conflicts with deterministic evidence",
+  "expectedFinalState": "CONDITIONAL · synthetic Bob narrative recommends READY · disagreement recorded",
+  "expectedVerdict": "conditional",
+  "transparencyNote": "REPLAY FIXTURE — SYNTHETIC BOB NARRATIVE. npm test already failed before the change and still fails after it, so ForgeGuard's deterministic decision is CONDITIONAL: the validation finding is preserved, not hidden. The synthetic narrative recommends READY; Bob's narrative is advisory and cannot change the decision. This disagreement can occur in a real ForgeGuard run.",
+  "mission": {
+    "issueText": "formatCurrency() in src/utils.ts is a stub that returns an empty string. Implement it with Intl.NumberFormat so /api/orders/discount returns a formatted USD total, and add tests.",
+    "repoLabel": "demo-app"
+  },
+  "repoSummary": {
+    "summary": "Small Express + TypeScript e-commerce API: pricing, inventory and utility modules with Vitest tests.",
+    "primaryFiles": ["src/utils.ts", "src/api.ts", "tests/utils.test.ts"],
+    "entryPoints": ["src/utils.ts:formatCurrency", "src/api.ts:POST /api/orders/discount"],
+    "issueLocation": "src/utils.ts:formatCurrency — returns ''",
+    "issueType": "feature",
+    "estimatedComplexity": "low"
+  },
+  "specialists": {
+    "code_impact_analyst": {
+      "affectedFiles": [{ "path": "src/utils.ts", "reason": "implement formatCurrency", "changeType": "modify" }],
+      "callerImpact": [{ "caller": "src/api.ts:POST /api/orders/discount", "impact": "formattedTotal becomes non-empty" }],
+      "riskLevel": "low",
+      "findings": ["formatCurrency is called only from the discount endpoint"]
+    },
+    "test_engineer": {
+      "existingTests": [
+        { "file": "tests/utils.test.ts", "coverage": "clamp, parseTags, generateId, sanitizeInput" },
+        { "file": "tests/inventory.test.ts", "coverage": "adjustStock, thresholds, inventory value" }
+      ],
+      "gaps": ["formatCurrency has no tests"],
+      "recommendedTests": [{ "name": "formats 1234.5 as $1,234.50", "reason": "core behaviour", "file": "tests/utils.test.ts" }],
+      "riskLevel": "low",
+      "findings": ["An inventory test already fails on the current code; it is unrelated to formatCurrency"]
+    },
+    "security_analyst": {
+      "securityFindings": [],
+      "owaspCategories": [],
+      "riskLevel": "low",
+      "findings": ["No security impact"]
+    },
+    "api_compat_analyst": {
+      "endpoints": [{ "path": "/api/orders/discount", "method": "POST", "breaking": false, "change": "formattedTotal is now populated" }],
+      "exportedFunctions": [{ "name": "formatCurrency", "breaking": false, "change": "Returns a USD string" }],
+      "semverRecommendation": "minor",
+      "riskLevel": "low",
+      "findings": ["Additive change"]
+    },
+    "doc_analyst": {
+      "staleDocFiles": [{ "file": "README.md", "issue": "Seeded issue #4 describes the stub" }],
+      "missingDocs": [],
+      "riskLevel": "low",
+      "findings": ["Update the README seeded-issues table"]
+    }
+  },
+  "changePlan": {
+    "summary": "Implement formatCurrency with Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }) and add unit tests. The pre-existing inventory test failure is out of scope.",
+    "riskLevel": "low",
+    "affectedFiles": ["src/utils.ts", "tests/utils.test.ts"],
+    "steps": [
+      { "order": 1, "file": "src/utils.ts", "description": "Implement formatCurrency with Intl.NumberFormat" },
+      { "order": 2, "file": "tests/utils.test.ts", "description": "Add formatCurrency tests" }
+    ],
+    "testingRequired": ["formatCurrency unit tests"],
+    "securityNotes": [],
+    "rollbackPlan": "Restore the pre-implementation anchor"
+  },
+  "implementation": {
+    "summary": "Implemented formatCurrency and added tests. The pre-existing inventory test failure was not touched.",
+    "changedFiles": [
+      { "path": "src/utils.ts", "change": "modified" },
+      { "path": "tests/utils.test.ts", "change": "modified" }
+    ]
+  },
+  "validation": {
+    "baseline": {
+      "npm run lint": { "exitCode": 0, "durationMs": 6800, "stdout": "> forgeguard-demo-app@1.0.0 lint\n> eslint src tests" },
+      "npm test": {
+        "exitCode": 1,
+        "durationMs": 3900,
+        "stdout": "> forgeguard-demo-app@1.0.0 test\n> vitest run\n\n ✓ tests/pricing.test.ts  (8 tests)\n ❯ tests/inventory.test.ts  (8 tests | 1 failed)\n   × calculateInventoryValue > calculates total value correctly\n     → expected 449.99 to be 450\n ✓ tests/utils.test.ts  (13 tests)\n\n Test Files  1 failed | 2 passed (3)\n      Tests  1 failed | 28 passed (29)",
+        "stderr": "AssertionError: expected 449.99 to be 450"
+      },
+      "npm run typecheck": { "exitCode": 0, "durationMs": 3800, "stdout": "> forgeguard-demo-app@1.0.0 typecheck\n> tsc --noEmit" },
+      "npm run build": { "exitCode": 0, "durationMs": 3500, "stdout": "> forgeguard-demo-app@1.0.0 build\n> tsc -p tsconfig.build.json" }
+    },
+    "post": {
+      "npm run lint": { "exitCode": 0, "durationMs": 6900, "stdout": "> forgeguard-demo-app@1.0.0 lint\n> eslint src tests" },
+      "npm test": {
+        "exitCode": 1,
+        "durationMs": 4000,
+        "stdout": "> forgeguard-demo-app@1.0.0 test\n> vitest run\n\n ✓ tests/pricing.test.ts  (8 tests)\n ❯ tests/inventory.test.ts  (8 tests | 1 failed)\n   × calculateInventoryValue > calculates total value correctly\n     → expected 449.99 to be 450\n ✓ tests/utils.test.ts  (16 tests)\n\n Test Files  1 failed | 2 passed (3)\n      Tests  1 failed | 31 passed (32)",
+        "stderr": "AssertionError: expected 449.99 to be 450"
+      },
+      "npm run typecheck": { "exitCode": 0, "durationMs": 3700, "stdout": "> forgeguard-demo-app@1.0.0 typecheck\n> tsc --noEmit" },
+      "npm run build": { "exitCode": 0, "durationMs": 3600, "stdout": "> forgeguard-demo-app@1.0.0 build\n> tsc -p tsconfig.build.json" }
+    }
+  },
+  "bobNarrative": {
+    "releaseReadiness": "ready",
+    "summary": "formatCurrency is implemented and its three new tests pass. The remaining inventory test failure is unrelated to this change, so the change is safe to release.",
+    "recommendation": "deploy",
+    "remainingRisks": ["An unrelated inventory test was already failing before this change"]
+  },
+  "rollback": {
+    "anchorAvailable": true,
+    "wouldRestore": ["src/utils.ts", "tests/utils.test.ts"],
+    "wouldRemove": []
+  },
+  "timeline": [
+    { "t": 0, "label": "Mission created", "action": { "type": "mission_created" } },
+    { "t": 1, "label": "Repository understanding started", "action": { "type": "phase_started", "phase": "repo_understanding" } },
+    { "t": 1, "label": "Baseline validation recorded (npm test already failing)", "action": { "type": "baseline_validation" } },
+    { "t": 2, "label": "Repository understood", "action": { "type": "phase_completed", "phase": "repo_understanding" } },
+    { "t": 2, "label": "5 specialist analyses started", "action": { "type": "phase_started", "phase": "parallel_analysis" } },
+    { "t": 4, "label": "Specialist analyses complete", "action": { "type": "phase_completed", "phase": "parallel_analysis" } },
+    { "t": 4, "label": "Change plan synthesis started", "action": { "type": "phase_started", "phase": "change_plan" } },
+    { "t": 5, "label": "Change plan ready", "action": { "type": "phase_completed", "phase": "change_plan" } },
+    { "t": 5, "label": "Approval required", "action": { "type": "approval_required" } },
+    { "t": 6, "label": "Plan approved", "action": { "type": "approved" } },
+    { "t": 7, "label": "Implementation started (rollback anchor recorded)", "action": { "type": "phase_started", "phase": "implementation" } },
+    { "t": 9, "label": "Implementation complete", "action": { "type": "phase_completed", "phase": "implementation" } },
+    { "t": 9, "label": "Post-implementation validation started", "action": { "type": "phase_started", "phase": "validation" } },
+    { "t": 10, "label": "Post-implementation results recorded", "action": { "type": "post_validation" } },
+    { "t": 11, "label": "Deterministic release decision (CONDITIONAL)", "action": { "type": "release_decision" } },
+    { "t": 11, "label": "Release narrative started", "action": { "type": "phase_started", "phase": "release_report" } },
+    { "t": 12, "label": "Synthetic release narrative recorded (disagrees)", "action": { "type": "phase_completed", "phase": "release_report" } },
+    { "t": 12, "label": "Mission complete", "action": { "type": "mission_completed" } }
+  ]
+}

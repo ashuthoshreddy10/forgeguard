@@ -1,0 +1,40 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# Local databases (ForgeGuard mission store, test and demo databases)
+backend/data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Environment and secrets (.env.example IS tracked)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs and temporary files
+logs/
+*.log
+npm-debug.log*
+*.tmp
+*.temp
+*.bak
+tmp/
+.tmp/
+
+# OS / editor artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
