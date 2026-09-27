@@ -110,7 +110,7 @@ Use `npm run dev` for the backend; `npm start` from `dist/` is not supported yet
 
 ### Demo Replay Mode
 
-Click **Demo replay** in the sidebar, choose a scenario and press **START REPLAY**.
+Open http://localhost:5173 and click **START DEMO REPLAY** (or **Demo replay** in the sidebar), choose a scenario and press **START REPLAY**. Playback pauses at the plan-approval gate; click **Approve plan** to reach the release decision.
 
 | Scenario | What it shows | Final state |
 |---|---|---|

@@ -9,6 +9,8 @@ import snapshots from '../../test/replay-views.json';
 import { ReplayWorkspace } from './ReplayWorkspace';
 import { Dashboard } from '../Dashboard';
 import { EvidenceDrawer } from '../EvidenceDrawer';
+import { Sidebar } from '../Sidebar';
+import { NewMissionModal } from '../NewMissionModal';
 import { DisplayProvider, REPLAY_DISPLAY } from '../../lib/display';
 import { useReplayStore, REPLAY_SESSION_KEY } from '../../store/replayStore';
 import { useStore } from '../../store/store';
@@ -60,15 +62,15 @@ describe('scenario selector', () => {
     const { calls } = mockReplayApi({ next: V('safe-fix@start') });
     render(<ReplayWorkspace />);
     await screen.findByTestId('scenario-safe-fix');
-    for (const [id, title, purpose] of [
-      ['safe-fix', 'Safe Fix', 'Complete end-to-end successful engineering workflow'],
-      ['regression-blocked', 'Regression Blocked', 'Post-change validation exposes a regression'],
-      ['bob-disagreement', 'Bob Disagreement', 'Model recommendation conflicts with deterministic evidence'],
+    for (const [id, title, purpose, final] of [
+      ['safe-fix', 'Safe Fix', 'Complete end-to-end successful engineering workflow', 'ready'],
+      ['regression-blocked', 'Regression Blocked', 'Post-change validation exposes a regression', 'blocked'],
+      ['bob-disagreement', 'Bob Disagreement', 'Model recommendation conflicts with deterministic evidence', 'conditional'],
     ] as const) {
       const card = screen.getByTestId(`scenario-${id}`);
       expect(card.textContent).toContain(title);
       expect(card.textContent).toContain(purpose);
-      expect(card.textContent).toContain('Expected final state');
+      expect(card.textContent).toContain(`Final: ${final}`); // badge text; CSS renders it upper-case
     }
     expect(screen.getByText('FORGEGUARD DEMO REPLAY')).toBeTruthy();
     expect(screen.getByText('No live IBM Bob execution')).toBeTruthy();
@@ -236,6 +238,121 @@ describe('scenario rendering', () => {
     const items = screen.getAllByTestId('evidence-item');
     expect(items.every((i) => i.textContent?.includes('Replay fixture'))).toBe(true);
     expect(document.body.textContent).toContain('none (replay fixture; IBM Bob not invoked)');
+  });
+});
+
+describe('judge entry flow', () => {
+  /** Mirrors App: the store's `view` decides between the live dashboard and the replay workspace. */
+  function Shell({ onNewMission }: { onNewMission: () => void }): React.ReactElement {
+    const view = useStore((s) => s.view);
+    return view === 'replay' ? <ReplayWorkspace /> : <Dashboard onNewMission={onNewMission} />;
+  }
+
+  it('the initial state offers START DEMO REPLAY as the primary action and CREATE LIVE MISSION as secondary', () => {
+    const onNewMission = vi.fn();
+    render(<Shell onNewMission={onNewMission} />);
+    const welcome = screen.getByTestId('welcome');
+    const buttons = within(welcome).getAllByRole('button').map((b) => b.textContent);
+    expect(buttons).toEqual(['START DEMO REPLAY', 'CREATE LIVE MISSION']); // primary first
+    expect(welcome.textContent).toContain('Deterministic demonstration — no live IBM Bob execution and no repository changes.');
+    expect(within(screen.getByRole('list', { name: 'ForgeGuard workflow' })).getAllByRole('listitem').map((li) => li.textContent?.replace('→', '')))
+      .toEqual(['Analysis', 'Plan', 'Implementation', 'Validation', 'Release decision']);
+    expect(within(screen.getByRole('list', { name: 'Capabilities' })).getAllByRole('listitem').map((li) => li.textContent))
+      .toEqual(['ANALYZE', 'VALIDATE', 'DECIDE']);
+    expect(welcome.textContent).toContain('AI recommends. Evidence decides.');
+    expect(screen.queryByTestId('replay-banner')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'CREATE LIVE MISSION' }));
+    expect(onNewMission).toHaveBeenCalledTimes(1);
+    expect(useStore.getState().view).toBe('live');
+  });
+
+  it('START DEMO REPLAY opens the scenario selector without starting a replay', async () => {
+    const { calls } = mockReplayApi();
+    render(<Shell onNewMission={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: 'START DEMO REPLAY' }));
+    await screen.findByTestId('scenario-safe-fix');
+    expect(screen.getByTestId('replay-selector')).toBeTruthy();
+    expect(screen.getByTestId('replay-banner').textContent).toContain('DEMO REPLAY — NOT A LIVE BOB RUN');
+    expect(screen.getByTestId('replay-start-hint').textContent).toMatch(/Safe Fix: plays automatically and pauses for your plan approval/);
+    expect(calls.some((c) => c.method !== 'GET')).toBe(false); // nothing started until the user clicks START REPLAY
+  });
+
+  it('scenario cards explain each outcome; Bob Disagreement states evidence vs the synthetic narrative', async () => {
+    mockReplayApi();
+    render(<ReplayWorkspace />);
+    await screen.findByTestId('scenario-bob-disagreement');
+    const card = screen.getByTestId('scenario-bob-disagreement');
+    expect(card.textContent).toContain('See evidence override an AI recommendation');
+    expect(screen.getByTestId('scenario-note-bob-disagreement').textContent).toBe('Evidence says CONDITIONAL. Synthetic Bob narrative says READY.');
+    // The frontend copy must agree with the fixture's own declared outcome.
+    const fixture = snapshots.scenarios.find((s) => s.id === 'bob-disagreement')!;
+    expect(fixture.expectedFinalState).toMatch(/^CONDITIONAL .*synthetic Bob narrative recommends READY/);
+    expect(screen.getByTestId('scenario-note-safe-fix').textContent).toMatch(/release decision/);
+    expect(screen.getByTestId('scenario-note-regression-blocked').textContent).toMatch(/blocked/);
+    // Selection is shown in text, not only by colour.
+    expect(screen.getByTestId('scenario-safe-fix').textContent).toContain('Selected');
+    fireEvent.click(card);
+    expect(card.textContent).toContain('Selected');
+    expect(screen.getByTestId('scenario-safe-fix').textContent).not.toContain('Selected');
+    expect(document.body.textContent).not.toMatch(/not available here/);
+  });
+
+  it('the new-mission dialog notes the live Bob requirement without claiming Bob is unavailable', () => {
+    render(<NewMissionModal onClose={() => undefined} onSubmit={async () => ({ ok: false, status: 0, error: {} })} />);
+    expect(screen.getByTestId('live-mission-note').textContent).toBe('Live missions require IBM Bob 2.0 and an available Bob account.');
+    expect(screen.getByRole('dialog').textContent).not.toMatch(/unavailable|not available/i);
+  });
+});
+
+describe('sidebar IBM Bob indicator', () => {
+  const bobHealth = (): string => screen.getByTestId('bob-health').textContent ?? '';
+  const renderShell = (): void => {
+    useStore.setState({
+      bobHealth: { data: { provider: 'shell', available: true, version: '2.0.5' }, loading: false, error: null, loaded: true },
+      missions: { data: [mission({ status: 'created' })], loading: false, error: null, loaded: true },
+    });
+    render(<><Sidebar onNewMission={() => undefined} />{useStore.getState().view === 'replay' && <ReplayWorkspace />}</>);
+  };
+
+  it('shows NOT INVOKED in replay mode, never the availability, and keeps the replay banner', () => {
+    mockReplayApi();
+    useStore.setState({ view: 'replay' });
+    renderShell();
+    expect(bobHealth()).toMatch(/IBM Bob:\s*not invoked/i);
+    expect(bobHealth()).not.toMatch(/available|2\.0\.5|running|live/i);
+    expect(screen.queryByText(/Availability does not prove/)).toBeNull();
+    expect(screen.getByTestId('replay-banner').textContent).toContain('DEMO REPLAY — NOT A LIVE BOB RUN');
+    expect(screen.getByTestId('app-mode').textContent).toMatch(/Mode:\s*demo replay/i);
+  });
+
+  it('keeps the existing availability display on the live mission view', () => {
+    mockReplayApi();
+    renderShell();
+    expect(bobHealth()).toMatch(/IBM Bob:\s*available 2\.0\.5/i);
+    expect(bobHealth()).not.toMatch(/not invoked/i);
+    expect(screen.getByText(/Availability does not prove/)).toBeTruthy();
+    expect(screen.getByTestId('app-mode').textContent).toMatch(/Mode:\s*live mission/i);
+  });
+
+  it('shows the real unavailable state on the live view, and NOT INVOKED in replay regardless', () => {
+    useStore.setState({ bobHealth: { data: { provider: 'shell', available: false, code: 'BOB_UNAVAILABLE' }, loading: false, error: null, loaded: true } });
+    render(<Sidebar onNewMission={() => undefined} />);
+    expect(bobHealth()).toMatch(/IBM Bob:\s*unavailable/i);
+    act(() => useStore.getState().setView('replay'));
+    expect(bobHealth()).toMatch(/IBM Bob:\s*not invoked/i);
+  });
+
+  it('updates the label when switching between replay and a live mission', async () => {
+    mockReplayApi();
+    renderShell();
+    expect(bobHealth()).toMatch(/available 2\.0\.5/i);
+    fireEvent.click(screen.getByTestId('open-replay'));
+    expect(bobHealth()).toMatch(/not invoked/i);
+    fireEvent.click(screen.getByText(mission({ status: 'created' }).issue_text));
+    await waitFor(() => expect(useStore.getState().view).toBe('live'));
+    expect(bobHealth()).toMatch(/available 2\.0\.5/i);
+    expect(bobHealth()).not.toMatch(/not invoked/i);
   });
 });
 

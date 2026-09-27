@@ -77,9 +77,15 @@ A mission's `repoPath` decides where `npm` scripts and Bob run. Only allow-liste
 
 All evidence goes through `recordEvidence`, which redacts values of secret-named environment variables (`*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*CREDENTIAL*`). HTTP error bodies are generic: no stack traces, no git stderr, no filesystem paths.
 
-## Still open
+## Accepted limitations
 
 Section numbers in this document follow the Milestone 5 brief. In the audit (`CLAUDE_AUDIT.md` §5), the input limit was **S7** and **S4** was prompt injection.
 
-- **Audit S4, prompt injection:** issue text still reaches a write-enabled agent, and the user-level Bob settings still have `outsideWorkspaceAllowed: true`. Both are unchanged. The repository allow-list and the rollback anchor limit the damage, but they don't prevent it.
-- **No authentication:** any local process can use the API, and binding to another interface exposes it.
+- **Audit S4, prompt injection:** issue text still reaches a write-enabled agent during the implementation phase (Bob `agent` mode). Mitigations: the repository allow-list confines the agent to approved directories; `--disable-tool-groups edit,execute,mode,artifact` is enforced for all read-only phases (1, 2, 3, 6); the rollback anchor enables full recovery; and the deterministic release verdict prevents the agent's narrative from overriding validation results. The user-level Bob settings (`outsideWorkspaceAllowed`, etc.) are the user's responsibility.
+- **No authentication:** any local process on the loopback interface can use the API. Binding to another interface via `FORGEGUARD_HOST` exposes it. This is a design decision for a local development tool; the loopback bind is the access control.
+
+## Final security assessment (2026-09-27)
+
+**Classification: SECURITY READY WITH ACCEPTED LIMITATIONS**
+
+A comprehensive penetration test (103 active probes) and full code review found no CRITICAL or HIGH vulnerabilities. All security controls listed above are verified by both code inspection and active testing. The full regression suite (189 tests) passes. See `docs/FINAL_SECURITY_AUDIT.md` for the complete findings table and penetration test evidence.

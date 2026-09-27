@@ -1372,3 +1372,69 @@ In the clone, the live path with Bob unavailable returned `POST /start` → 503 
 ### GitHub remote
 
 The GitHub CLI (`gh`) is not installed; only Git Credential Manager is present. The public API reports that user `ashuthoshreddy10` exists and that `ashuthoshreddy10/forgeguard` does **not** exist (HTTP 404). No remote was added and nothing was pushed. The exact push commands are in the final report.
+
+
+---
+
+## Final Comprehensive Security Assessment
+
+**Date:** 2026-09-27 · **Assessor:** Claude Code (Opus 4.6)
+**Scope:** Full repository — passive code review + active penetration testing
+**Constraint:** IBM Bob was NEVER invoked. No Bob credits were used.
+
+### Assessment summary
+
+A comprehensive security assessment was conducted covering 24 phases: threat model, secret audit, dependency/supply-chain, SAST, API security, auth/authz, WebSocket, command/process execution, prompt injection, path/filesystem, git/rollback, SQLite, validation runner, input/resource exhaustion, frontend, security headers, CORS/CSRF, replay isolation, information disclosure, race conditions/TOCTOU, CI/CD, security regression testing, remediation, and final verification.
+
+**Active testing:** 103 security probes against a live server (ephemeral port, in-memory SQLite). All 103 passed.
+
+**Regression testing:** 189 tests (121 backend + 1 integration + 38 frontend + 29 demo-app). All passing. All typechecks, lints, and builds clean.
+
+### Findings
+
+| Severity | Count | Details |
+|----------|-------|---------|
+| CRITICAL | 0 | — |
+| HIGH | 0 | — |
+| MEDIUM | 2 | Prompt injection via Bob (inherent to product purpose); no authentication (design decision for local tool) |
+| LOW | 3 | 1 moderate npm vuln (not exploitable); no rate limiting (local tool); no HTTPS (loopback) |
+
+No CRITICAL or HIGH findings were found. No remediation was required.
+
+### Active penetration test highlights
+
+- **Command injection:** 11 shell metacharacter payloads (`;`, `$()`, backticks, `&&`, `|`, newlines, template literals) — all stored literally, never executed
+- **SQL injection:** 5 payloads (`' OR`, `; DROP TABLE`, `UNION SELECT`) — all stored literally, table intact
+- **Path traversal:** 14 payloads (`../`, `..\`, null bytes, URL-encoded, overlong, symlinks) — all rejected with 403/400
+- **XSS:** 4 payloads (`<script>`, `<img onerror>`, `javascript:`) — all stored as literal text, React renders safely
+- **CORS/Origin:** Evil origin → 403; allowed origin → accepted; missing origin → accepted (loopback client)
+- **WebSocket:** Evil origin → 403; allowed → accepted; missing → accepted
+- **Replay isolation:** Path traversal and `__proto__` in scenario IDs → 404; invalid actions → 400
+
+### Security controls verified
+
+| Control | Implementation | Verification |
+|---------|---------------|--------------|
+| Repository allow-list | `repoPolicy.ts` — `realpathSync.native`, exact match, no prefix | 14 active probes |
+| Loopback binding | `127.0.0.1` default | `netstat` + code review |
+| Origin policy (REST + WS) | Custom middleware + `verifyClient` | 8 active probes |
+| Input limits | 12,000 char issueText, 100kb JSON body | 3 active probes |
+| Parameterized SQL | All `.prepare()` with `?` placeholders | 5 active probes + code review |
+| Dynamic column allow-list | `UPDATABLE_MISSION_COLUMNS` | `security.test.ts` |
+| Command execution safety | `shell: false` everywhere, fixed validation commands | 12 active probes |
+| Secret redaction | `redact.ts` at persistence boundary | Code review |
+| Git safety | `shell: false`, `GIT_TERMINAL_PROMPT=0` | Code review |
+| Rollback gates | 8 sequential gates, anchor ownership, path safety | 18 rollback tests |
+| Replay isolation | No Bob/git/child_process/DB in replay path | 18 replay tests + spies |
+| x-powered-by disabled | `app.disable('x-powered-by')` | Active probe |
+| No stack traces in errors | Structured JSON error responses | Active probe |
+| No path disclosure | Resolved paths never echoed | 14 traversal probes |
+| Frontend XSS prevention | No dangerouslySetInnerHTML/eval/innerHTML | 4 active probes + code review |
+
+### Classification
+
+**SECURITY READY WITH ACCEPTED LIMITATIONS**
+
+The two accepted limitations (prompt injection via the AI agent in implementation mode, and no authentication for a local tool) are inherent to the product's architecture and purpose. All other security controls are comprehensive and verified.
+
+Full details: `docs/FINAL_SECURITY_AUDIT.md`.

@@ -83,6 +83,9 @@ export function NewMissionModal({ onClose, onSubmit }: {
               <p className="px-3 py-2 bg-surface-900 border border-surface-600 rounded text-xs text-gray-400 font-mono">
                 demo-app (default; the backend only accepts allow-listed repositories)
               </p>
+              <p className="text-xs text-gray-400 mt-1.5" data-testid="live-mission-note">
+                Live missions require IBM Bob 2.0 and an available Bob account.
+              </p>
             </div>
             {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
           </div>

@@ -59,18 +59,23 @@ export function Sidebar({ onNewMission }: { onNewMission: () => void }): React.R
       </nav>
 
       <div className="px-4 py-3 border-t border-surface-600 space-y-2 text-xs">
+        <div className="flex items-center gap-2" data-testid="app-mode">
+          <span className="text-gray-400">Mode:</span>
+          {view === 'replay' ? <Badge tone="warning">demo replay</Badge> : <Badge tone="neutral">live mission</Badge>}
+        </div>
         <div className="flex items-center gap-2">
           <span aria-hidden className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-500' : 'bg-red-500'}`} />
           <span className="text-gray-300">Live updates: {wsConnected ? 'connected' : 'disconnected (retrying)'}</span>
         </div>
         <div className="flex items-center gap-2" data-testid="bob-health">
           <span className="text-gray-400">IBM Bob:</span>
-          {!bob.loaded ? <span className="text-gray-500">checking…</span>
-            : bob.data?.available ? <Badge tone="success">available{bob.data.version ? ` ${bob.data.version}` : ''}</Badge>
-              : bob.data ? <Badge tone="danger">unavailable</Badge>
-                : <Badge tone="muted">unknown</Badge>}
+          {view === 'replay' ? <Badge tone="warning">not invoked</Badge>
+            : !bob.loaded ? <span className="text-gray-500">checking…</span>
+              : bob.data?.available ? <Badge tone="success">available{bob.data.version ? ` ${bob.data.version}` : ''}</Badge>
+                : bob.data ? <Badge tone="danger">unavailable</Badge>
+                  : <Badge tone="muted">unknown</Badge>}
         </div>
-        {bob.data?.available && <p className="text-[11px] text-gray-500">Availability does not prove authentication or remaining credits.</p>}
+        {view !== 'replay' && bob.data?.available && <p className="text-[11px] text-gray-500">Availability does not prove authentication or remaining credits.</p>}
       </div>
     </aside>
   );

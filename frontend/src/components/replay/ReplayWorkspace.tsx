@@ -10,7 +10,7 @@ import { useStore, type MissionDetail } from '../../store/store';
 import { DisplayProvider, REPLAY_DISPLAY } from '../../lib/display';
 import type { ReplayView } from '../../types';
 import { MissionView } from '../MissionView';
-import { Badge, Button, StateMessage } from '../ui';
+import { Badge, Button, StateMessage, StatusBadge } from '../ui';
 
 const loaded = <T,>(data: T) => ({ data, loading: false, error: null, loaded: true });
 
@@ -98,6 +98,19 @@ export function ReplayControls({ session }: { session: ReplayView }): React.Reac
   );
 }
 
+/** Presentation-only copy per scenario; titles, purposes and final states come from the fixtures. */
+const SCENARIO_COPY: Record<string, { subtitle?: string; note: string }> = {
+  'safe-fix': { note: 'Walk the full pipeline, approve the plan and reach a release decision.' },
+  'regression-blocked': { note: 'A test that passed before the change fails after it, so the release is blocked.' },
+  'bob-disagreement': {
+    subtitle: 'See evidence override an AI recommendation',
+    note: 'Evidence says CONDITIONAL. Synthetic Bob narrative says READY.',
+  },
+};
+
+/** "READY · release narrative agrees · …" → "ready" */
+const finalVerdict = (expectedFinalState: string): string => (expectedFinalState.split('·')[0] ?? '').trim().toLowerCase();
+
 export function ReplaySelector(): React.ReactElement {
   const scenarios = useReplayStore((s) => s.scenarios);
   const loadedScenarios = useReplayStore((s) => s.scenariosLoaded);
@@ -107,6 +120,7 @@ export function ReplaySelector(): React.ReactElement {
   const controlError = useReplayStore((s) => s.controlError);
   const [chosen, setChosen] = useState<string | null>(null);
   const selected = chosen ?? scenarios[0]?.id ?? null;
+  const selectedScenario = scenarios.find((s) => s.id === selected);
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto w-full" data-testid="replay-selector">
@@ -118,7 +132,7 @@ export function ReplaySelector(): React.ReactElement {
           <li>No repository changes, no commands executed</li>
         </ul>
         <p className="mt-2 text-xs text-gray-400">
-          IBM Bob 2.0 was used to build ForgeGuard. Replay mode shows the workflow with fixture data because live Bob execution is not available here.
+          IBM Bob 2.0 was used to build ForgeGuard. Replay shows the workflow with fixture data, so it needs no Bob account or credits.
         </p>
       </section>
 
@@ -126,23 +140,38 @@ export function ReplaySelector(): React.ReactElement {
       {error && <StateMessage kind="error">{error}</StateMessage>}
       {!loadedScenarios && <StateMessage kind="loading">Loading scenarios…</StateMessage>}
       <div role="radiogroup" aria-label="Replay scenarios" className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {scenarios.map((s) => (
-          <button key={s.id} type="button" role="radio" aria-checked={selected === s.id} onClick={() => setChosen(s.id)}
-            data-testid={`scenario-${s.id}`}
-            className={`text-left rounded-lg border p-4 bg-surface-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${selected === s.id ? 'border-sky-500' : 'border-surface-600 hover:border-surface-500'}`}>
-            <p className="text-sm font-semibold text-gray-100">{s.title}</p>
-            <p className="mt-1 text-xs text-gray-300">{s.purpose}</p>
-            <p className="mt-3 text-[11px] uppercase tracking-wider text-gray-500">Expected final state</p>
-            <p className="text-xs text-gray-200">{s.expectedFinalState}</p>
-            <p className="mt-2 text-[11px] text-gray-500">{s.steps} steps · replay time T+{s.durationSeconds}s</p>
-          </button>
-        ))}
+        {scenarios.map((s) => {
+          const copy = SCENARIO_COPY[s.id];
+          const isSelected = selected === s.id;
+          return (
+            <button key={s.id} type="button" role="radio" aria-checked={isSelected} onClick={() => setChosen(s.id)}
+              data-testid={`scenario-${s.id}`}
+              className={`flex flex-col text-left rounded-lg border p-4 bg-surface-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${isSelected ? 'border-sky-500 bg-sky-950/30' : 'border-surface-600 hover:border-surface-500'}`}>
+              <span className="flex items-start justify-between gap-2">
+                <span className="text-sm font-semibold uppercase tracking-wide text-gray-100">{s.title}</span>
+                {isSelected && <span className="text-[10px] uppercase tracking-wider text-sky-300">✓ Selected</span>}
+              </span>
+              {copy?.subtitle && <span className="mt-1 text-xs font-medium text-amber-200">{copy.subtitle}</span>}
+              <span className="mt-1 text-xs text-gray-300">{s.purpose}</span>
+              {copy && <span className="mt-2 text-xs text-gray-400" data-testid={`scenario-note-${s.id}`}>{copy.note}</span>}
+              <span className="mt-auto pt-3 flex items-center gap-2 text-xs text-gray-400">
+                Final: <StatusBadge status={finalVerdict(s.expectedFinalState)} />
+              </span>
+              <span className="mt-2 text-[11px] text-gray-500">{s.steps} steps · replay time T+{s.durationSeconds}s</span>
+            </button>
+          );
+        })}
       </div>
       {controlError && <p role="alert" className="mt-3 text-xs text-red-300">{controlError}</p>}
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button variant="primary" disabled={!selected || busy} onClick={() => { if (selected) void start(selected); }}>
           {busy ? 'Starting…' : 'START REPLAY'}
         </Button>
+        {selectedScenario && (
+          <p className="text-xs text-gray-400" data-testid="replay-start-hint">
+            {selectedScenario.title}: plays automatically and pauses for your plan approval, as the real pipeline does.
+          </p>
+        )}
       </div>
     </div>
   );

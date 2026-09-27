@@ -49,7 +49,7 @@ export default function App(): React.ReactElement {
   return (
     <div className="relative flex flex-col md:flex-row min-h-screen md:h-screen md:overflow-clip bg-surface-900 text-gray-100">
       <Sidebar onNewMission={() => setShowNewMission(true)} />
-      {inReplay ? <ReplayWorkspace /> : <Dashboard />}
+      {inReplay ? <ReplayWorkspace /> : <Dashboard onNewMission={() => setShowNewMission(true)} />}
       {drawer}
       {showNewMission && <NewMissionModal onClose={() => setShowNewMission(false)} onSubmit={createMission} />}
     </div>
